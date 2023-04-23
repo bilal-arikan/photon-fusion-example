@@ -10,6 +10,7 @@ using WebSocketSharp;
 
 public class PreGamePanel : SingletonBehaviour<PreGamePanel>
 {
+    public Text PlayerCountText;
     public InputField NicknameField;
     public Button PlayerReadyButton;
     public Button LeaveGameButton;
@@ -25,7 +26,7 @@ public class PreGamePanel : SingletonBehaviour<PreGamePanel>
         }));
         LeaveGameButton.onClick.AddListener(() =>
         {
-            ClientManager.Runner.Shutdown();
+            AsteroidsClientManager.Runner.Shutdown();
         });
         NicknameField.text = PlayerPrefs.GetString("Nickname", "Player " + UnityEngine.Random.Range(1000, 10000));
         NicknameField.onValueChanged.AddListener(v =>
@@ -40,5 +41,7 @@ public class PreGamePanel : SingletonBehaviour<PreGamePanel>
         PlayerReadyButton.interactable = SpaceshipBehaviour.Local && !SpaceshipBehaviour.Local.IsReady;
 
         playerListLayout.Initialize();
+
+        PlayerCountText.text = AsteroidsClientManager.Runner.ActivePlayers.Count() + " / " + AsteroidsGameManager.PLAYER_COUNT_TO_START;
     }
 }

@@ -28,7 +28,7 @@ namespace Fusion.Sample.DedicatedServer
 
         public void Initialize()
         {
-            var runner = ClientManager.Runner;
+            var runner = AsteroidsClientManager.Runner;
             var players = runner.ActivePlayers.Where(p => p.IsValid).Select(p =>
             {
                 // if (runner.TryGetPlayerObject(p, out var plObject) && plObject.TryGetComponent<SpaceshipBehaviour>(out var spaceship))

@@ -34,6 +34,7 @@ namespace Fusion.Sample.DedicatedServer
     [SimulationBehaviour(Modes = SimulationModes.Server)]
     public class AsteroidsGameManager : SimulationBehaviour, INetworkRunnerCallbacks
     {
+        public const int PLAYER_COUNT_TO_START = 3;
         const float ASTEROIDS_MIN_SPAWN_TIME = 3;
         const float ASTEROIDS_MAX_SPAWN_TIME = 6;
 
@@ -127,7 +128,12 @@ namespace Fusion.Sample.DedicatedServer
         {
             Debug.Assert(Runner != null, "Runner null");
             Debug.Assert(Runner.ActivePlayers != null, "Runner.ActivePlayers null");
-            return Runner.ActivePlayers.Where(p => p.IsValid).All(p =>
+
+            var players = Runner.ActivePlayers.Where(p => p.IsValid).ToList();
+            if (players.Count != AsteroidsGameManager.PLAYER_COUNT_TO_START)
+                return false;
+
+            return players.All(p =>
             {
                 return _playerMap[p].IsReady;
             });

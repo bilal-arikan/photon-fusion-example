@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using Fusion.Photon.Realtime;
 using Fusion.Sockets;
+using Unity.Services.Core;
+using Unity.Services.Multiplay;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -115,7 +118,22 @@ namespace Fusion.Sample.DedicatedServer
                 CustomPublicAddress = externalAddr,
                 CustomLobbyName = customLobby,
                 CustomPhotonAppSettings = photonSettings,
+                PlayerCount = AsteroidsGameManager.PLAYER_COUNT_TO_START,
             });
+        }
+
+        async UniTask InitializeUnityService()
+        {
+            await UnityServices.InitializeAsync();
+
+            MultiplayEventCallbacks multiplayCallbacks = new();
+
+            var serverConfig = MultiplayService.Instance.ServerConfig;
+            if (!string.IsNullOrEmpty(serverConfig.AllocationId))
+            {
+
+            }
+
         }
     }
 }

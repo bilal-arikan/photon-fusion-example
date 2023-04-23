@@ -18,7 +18,7 @@ public class PostGamePanel : SingletonBehaviour<PostGamePanel>
     {
         LeaveGameButton.onClick.AddListener(() =>
         {
-            ClientManager.Runner.Shutdown();
+            AsteroidsClientManager.Runner.Shutdown();
         });
     }
 

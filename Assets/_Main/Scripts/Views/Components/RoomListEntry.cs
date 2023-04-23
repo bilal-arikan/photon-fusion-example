@@ -19,7 +19,7 @@ namespace Fusion.Sample.DedicatedServer
         {
             JoinRoomButton.onClick.AddListener(async () =>
             {
-                var result = await ClientManager.Instance.StartClient(sess.Name);
+                var result = await AsteroidsClientManager.Instance.StartClient(sess.Name);
             });
         }
 

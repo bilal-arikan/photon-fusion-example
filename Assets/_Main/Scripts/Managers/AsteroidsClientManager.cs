@@ -5,15 +5,18 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Fusion.Sockets;
 using Photon.Pun.Demo.Asteroids;
+using Unity.Services.Authentication;
+using Unity.Services.Matchmaker;
+using Unity.Services.Matchmaker.Models;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace Fusion.Sample.DedicatedServer
 {
 
-    public class ClientManager : MonoBehaviour, INetworkRunnerCallbacks
+    public class AsteroidsClientManager : MonoBehaviour, INetworkRunnerCallbacks
     {
-        public static ClientManager Instance { get; private set; }
+        public static AsteroidsClientManager Instance { get; private set; }
 
         [SerializeField] private NetworkRunner _runnerPrefab;
 
@@ -68,6 +71,22 @@ namespace Fusion.Sample.DedicatedServer
                 Debug.Log("Done");
                 return true;
             }
+        }
+
+        public async UniTask<CreateTicketResponse> FindMatch()
+        {
+            var ticketResponse = await MatchmakerService.Instance.CreateTicketAsync(new List<Player>(){
+                new Player(
+                    AuthenticationService.Instance.PlayerId,
+                    new Dictionary<string,string>(){
+                        {"skill", "100"}
+                    }
+                )
+            }, new CreateTicketOptions()
+            {
+                QueueName = "QueA"
+            });
+            return ticketResponse;
         }
 
         public async UniTask<bool> JoinLobby(string lobbyName)

@@ -14,10 +14,10 @@ namespace Photon.Pun.Demo.Asteroids
     {
         public RoomListLayout roomListLayout;
         public InputField PlayerNameInput;
-        public InputField SessionNameInput;
         public InputField LobbyNameInput;
         public Button JoinRandomGameButton;
         public Button JoinLobbyButton;
+        public Button FindMatchButton;
 
         private void Start()
         {
@@ -25,15 +25,21 @@ namespace Photon.Pun.Demo.Asteroids
             JoinRandomGameButton.onClick.AddListener(async () =>
             {
                 JoinRandomGameButton.interactable = false;
-                await ClientManager.Instance.StartClient(SessionNameInput.text);
+                await AsteroidsClientManager.Instance.StartClient("");
                 JoinRandomGameButton.interactable = true;
             });
             JoinLobbyButton.onClick.AddListener(async () =>
             {
                 JoinLobbyButton.interactable = false;
-                var result = await ClientManager.Instance.JoinLobby(LobbyNameInput.text);
+                var result = await AsteroidsClientManager.Instance.JoinLobby(LobbyNameInput.text);
                 JoinLobbyButton.interactable = true;
                 ShowRoomList(result);
+            });
+            FindMatchButton.onClick.AddListener(async () =>
+            {
+                FindMatchButton.interactable = false;
+                var result = await AsteroidsClientManager.Instance.FindMatch();
+                FindMatchButton.interactable = true;
             });
 
             PlayerNameInput.text = PlayerPrefs.GetString("Nickname", "Player " + UnityEngine.Random.Range(1000, 10000));

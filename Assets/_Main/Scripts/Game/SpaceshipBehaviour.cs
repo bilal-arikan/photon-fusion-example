@@ -189,7 +189,7 @@ namespace Fusion.Sample.DedicatedServer
         {
             Debug.Log("IsReady_Changed " + ready + " " + name, this);
             IsReady = ready;
-            if (ClientManager.Instance)
+            if (AsteroidsClientManager.Instance)
             {
                 PreGamePanel.Instance.Initialize();
             }
