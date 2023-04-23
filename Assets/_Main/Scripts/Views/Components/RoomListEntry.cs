@@ -19,15 +19,7 @@ namespace Fusion.Sample.DedicatedServer
         {
             JoinRoomButton.onClick.AddListener(async () =>
             {
-                var result = await ClientManager.Instance.JoinLobby(ClientManager.Runner, sess.Name);
-                if (result.Ok == false)
-                {
-                    Debug.LogWarning(result.ShutdownReason);
-                }
-                else
-                {
-                    Debug.Log("Done");
-                }
+                var result = await ClientManager.Instance.StartClient(sess.Name);
             });
         }
 

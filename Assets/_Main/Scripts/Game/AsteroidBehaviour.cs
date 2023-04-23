@@ -6,30 +6,26 @@ using Random = UnityEngine.Random;
 
 namespace Fusion.Sample.DedicatedServer
 {
-    public class AsteroidBehaviour : NetworkBehaviour
+    public class AsteroidBehaviour : NetworkRigidbody
     {
         private Rigidbody rigid;
-        [ShowInInspector] public Vector3 addForce { get; set; }
-        [ShowInInspector] public Vector3 addTorque { get; set; }
         [ShowInInspector] public bool isLargeAsteroid { get; set; }
 
-        private void Awake()
+        protected override void Awake()
         {
-            rigid = GetComponent<Rigidbody>();
+            base.Awake();
         }
 
         public override void Spawned()
         {
-            rigid.AddForce(addForce);
-            rigid.AddTorque(addTorque);
         }
 
         public void Initialize(Vector3 force, Vector3 torque, bool isLargeAsteroid)
         {
             this.isLargeAsteroid = isLargeAsteroid;
-            Rigidbody rigidbody = GetComponent<Rigidbody>();
-            rigid.AddForce(addForce);
-            rigid.AddTorque(addTorque);
+            rigid = GetComponent<Rigidbody>();
+            rigid.AddForce(force);
+            rigid.AddTorque(torque);
         }
 
         public override void FixedUpdateNetwork()
@@ -41,19 +37,18 @@ namespace Fusion.Sample.DedicatedServer
                 // Out of the screen
                 if (Mathf.Abs(transform.position.x) > area.width / 2)
                 {
-                    Runner.Despawn(Object);
+                    AsteroidsGameManager.Instance.DestroyAsteroid(this);
                 }
                 // Out of the screen
                 if (Mathf.Abs(transform.position.z) > area.height / 2)
                 {
-                    Runner.Despawn(Object);
+                    AsteroidsGameManager.Instance.DestroyAsteroid(this);
                 }
             }
         }
 
         public override void Despawned(NetworkRunner runner, bool hasState)
         {
-            // Debug.Log("Despawned", this);
         }
 
         public void OnCollisionEnter(Collision collision)
@@ -65,14 +60,12 @@ namespace Fusion.Sample.DedicatedServer
             }
             if (collision.gameObject.CompareTag("Bullet") && collision.gameObject.TryGetComponent<Bullet>(out var bullet))
             {
-                // bullet.Id
-                Debug.Log("OnCollisionEnter bullet ", this);
+                // Debug.Log("OnCollisionEnter bullet ", this);
                 _ = AsteroidsGameManager.Instance.SplitAsteroid(this);
             }
             else if (collision.gameObject.CompareTag("Player") && collision.gameObject.TryGetComponent<SpaceshipBehaviour>(out var spaceship))
             {
-                // collision.gameObject.GetComponent<PhotonView>().RPC("DestroySpaceship", RpcTarget.All);
-                Debug.Log("OnCollisionEnter player " + spaceship.name, this);
+                // Debug.Log("OnCollisionEnter player " + spaceship.name, this);
                 _ = AsteroidsGameManager.Instance.SplitAsteroid(this);
             }
         }

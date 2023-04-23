@@ -21,14 +21,19 @@ namespace Photon.Pun.Demo.Asteroids
 
         private void Start()
         {
-
-            JoinRandomGameButton.onClick.AddListener(() =>
+            ShowRoomList(false);
+            JoinRandomGameButton.onClick.AddListener(async () =>
             {
-                ClientManager.Instance.StartClient(SessionNameInput.text);
+                JoinRandomGameButton.interactable = false;
+                await ClientManager.Instance.StartClient(SessionNameInput.text);
+                JoinRandomGameButton.interactable = true;
             });
-            JoinLobbyButton.onClick.AddListener(() =>
+            JoinLobbyButton.onClick.AddListener(async () =>
             {
-                ClientManager.Instance.JoinLobby(LobbyNameInput.text);
+                JoinLobbyButton.interactable = false;
+                var result = await ClientManager.Instance.JoinLobby(LobbyNameInput.text);
+                JoinLobbyButton.interactable = true;
+                ShowRoomList(result);
             });
 
             PlayerNameInput.text = PlayerPrefs.GetString("Nickname", "Player " + UnityEngine.Random.Range(1000, 10000));
@@ -46,6 +51,12 @@ namespace Photon.Pun.Demo.Asteroids
             {
 
             }
+        }
+
+        void ShowRoomList(bool show)
+        {
+            roomListLayout.gameObject.SetActive(show);
+            JoinLobbyButton.interactable = !show;
         }
     }
 }

@@ -18,35 +18,32 @@ using Hashtable = ExitGames.Client.Photon.Hashtable;
 
 namespace Fusion.Sample.DedicatedServer
 {
-    public class SpaceshipBehaviour : NetworkBehaviour
+    public class SpaceshipBehaviour : NetworkRigidbody, IAfterSpawned
     {
         [ShowInInspector] public static readonly Dictionary<PlayerRef, SpaceshipBehaviour> Instances = new();
         [ShowInInspector] public static SpaceshipBehaviour Local { get; private set; }
-        [ShowInInspector] public GamePhase CurrentPhase { get; private set; }
 
+        [ShowInInspector] public GamePhase CurrentPhase { get; private set; }
         public string Nickname { get; private set; }
         public Color Color { get; private set; } = Color.white;
         public bool IsReady { get; private set; }
+
+        private bool isDirty;
 
         public Bullet BulletPrefab;
         public float RotationSpeed = 90.0f;
         public float MovementSpeed = 2.0f;
         public float MaxSpeed = 0.2f;
 
-#pragma warning disable 0109
-        private new Rigidbody rigidbody;
-#pragma warning restore 0109
 
         private float rotation = 0.0f;
         private float acceleration = 0.0f;
         private bool isShooting = false;
-
         private float shootingTimer = 0;
 
-
-        public void Awake()
+        protected override void Awake()
         {
-            rigidbody = GetComponent<Rigidbody>();
+            base.Awake();
         }
 
         public void Start()
@@ -60,100 +57,94 @@ namespace Fusion.Sample.DedicatedServer
             if (Runner.LocalPlayer == Object.InputAuthority || Runner.LocalPlayer == Object.StateAuthority)
             {
                 Local = this;
-                Debug.Log("Local " + name, this);
+                // Debug.Log("Local " + name, this);
             }
-            if (Runner.IsClient)
-            {
-                if (Object.InputAuthority)
-                {
-                    // UniTask.Delay(500).ContinueWith(() =>
-                    // {
-                    //     Nickname = Nickname ?? PlayerPrefs.GetString("Nickname", "Unknown");
-                    //     RPC_SetReady(IsReady);
-                    //     RPC_SetColor(Color);
-                    //     RPC_SetNickname(Nickname);
-                    //     RPC_Reposition(transform.position, transform.eulerAngles);
-                    // });
-                }
-
-                if (PreGamePanel.Instance != null)
-                    PreGamePanel.Instance.Initialize();
-                if (GamePlayPanel.Instance != null)
-                    GamePlayPanel.Instance.Initialize();
-                if (PostGamePanel.Instance != null)
-                    PostGamePanel.Instance.Initialize();
-            }
+            // if (Runner.IsClient)
+            // {
+            //     isDirty = true;
+            // }
         }
 
+        public void AfterSpawned()
+        {
+            Nickname = Nickname ?? PlayerPrefs.GetString("Nickname", "Unknown");
+            RPC_SetReady(IsReady);
+            RPC_SetColor(Color);
+            RPC_SetNickname(Nickname);
+            RPC_Reposition(transform.position, transform.eulerAngles);
+        }
         public override void Despawned(NetworkRunner runner, bool hasState)
         {
             Instances.Remove(Object.InputAuthority);
             if (Runner.IsClient)
             {
-                if (PreGamePanel.Instance != null)
-                    PreGamePanel.Instance.Initialize();
-                if (GamePlayPanel.Instance != null)
-                    GamePlayPanel.Instance.Initialize();
-                if (PostGamePanel.Instance != null)
-                    PostGamePanel.Instance.Initialize();
+                isDirty = true;
             }
         }
 
 
-        public SpaceShipNetworkInput GetLocalInput()
-        {
-            rotation = Input.GetAxis("Horizontal");
-            acceleration = Input.GetAxis("Vertical");
-            isShooting = Input.GetKey(KeyCode.Space);
-
-            return new()
-            {
-                isShooting = isShooting,
-                rotation = rotation,
-                acceleration = acceleration,
-            };
-        }
 
         public override void FixedUpdateNetwork()
         {
             if (CurrentPhase == GamePhase.Playing)
             {
                 // if (Object.HasInputAuthority)
+                // {
+                //     var input = GetLocalInput();
+                //     rotation = input.rotation;
+                //     acceleration = input.acceleration;
+                //     isShooting = input.isShooting;
+                // }
+                // else 
+                if (GetInput(out SpaceShipNetworkInput input))
                 {
-                    if (GetInput(out SpaceShipNetworkInput input))
-                    {
-                        rotation = input.rotation;
-                        acceleration = input.acceleration;
-                        isShooting = Input.GetKey(KeyCode.Space);
-                    }
-
-                    if (isShooting && shootingTimer <= 0.0)
-                    {
-                        shootingTimer = 0.3f;
-                        RPC_Fire(transform.position, transform.rotation);
-                    }
-                    shootingTimer -= Time.deltaTime;
+                    rotation = input.rotation;
+                    acceleration = input.acceleration;
+                    isShooting = input.isShooting;
                 }
+
+                if (isShooting && shootingTimer <= 0.0)
+                {
+                    shootingTimer = 0.8f;
+                    RPC_Fire(transform.position, transform.rotation);
+                }
+                shootingTimer -= Time.deltaTime;
+            }
+        }
+
+        private void Update()
+        {
+            if (HasStateAuthority)
+                return;
+            if (isDirty)
+            {
+                isDirty = false;
+                if (PreGamePanel.Instance != null)
+                    PreGamePanel.Instance.Initialize();
+                if (GamePlayPanel.Instance != null)
+                    GamePlayPanel.Instance.Initialize();
+                if (PostGamePanel.Instance != null)
+                    PostGamePanel.Instance.Initialize();
             }
         }
 
         public void FixedUpdate()
         {
-            if (CurrentPhase != GamePhase.Playing)
-            {
-                rigidbody.angularVelocity = Vector3.zero;
-                rigidbody.velocity = Vector3.zero;
-                return;
-            }
-            Quaternion rot = rigidbody.rotation * Quaternion.Euler(0, rotation * RotationSpeed * Time.fixedDeltaTime, 0);
-            rigidbody.MoveRotation(rot);
+            // if (CurrentPhase != GamePhase.Playing)
+            // {
+            //     Rigidbody.angularVelocity = Vector3.zero;
+            //     Rigidbody.velocity = Vector3.zero;
+            //     return;
+            // }
+            Quaternion rot = Rigidbody.rotation * Quaternion.Euler(0, rotation * RotationSpeed * Time.fixedDeltaTime, 0);
+            Rigidbody.MoveRotation(rot);
 
             Vector3 force = (rot * Vector3.forward) * acceleration * 1000.0f * MovementSpeed * Time.fixedDeltaTime;
-            rigidbody.AddForce(force);
+            Rigidbody.AddForce(force);
 
-            if (rigidbody.velocity.magnitude > (MaxSpeed * 1000.0f))
+            if (Rigidbody.velocity.magnitude > (MaxSpeed * 1000.0f))
             {
-                rigidbody.velocity = rigidbody.velocity.normalized * MaxSpeed * 1000.0f;
+                Rigidbody.velocity = Rigidbody.velocity.normalized * MaxSpeed * 1000.0f;
             }
 
             CheckExitScreen();
@@ -167,16 +158,16 @@ namespace Fusion.Sample.DedicatedServer
 
             Rect area = new Rect(0, 0, 50, 50);
 
-            if (Mathf.Abs(rigidbody.position.x) > area.width / 2)
+            if (Mathf.Abs(Rigidbody.position.x) > area.width / 2)
             {
-                rigidbody.position = new Vector3(-Mathf.Sign(rigidbody.position.x) * area.width / 2, 0, rigidbody.position.z);
-                rigidbody.position -= rigidbody.position.normalized * 0.1f; // offset a little bit to avoid looping back & forth between the 2 edges 
+                Rigidbody.position = new Vector3(-Mathf.Sign(Rigidbody.position.x) * area.width / 2, 0, Rigidbody.position.z);
+                Rigidbody.position -= Rigidbody.position.normalized * 0.1f; // offset a little bit to avoid looping back & forth between the 2 edges 
             }
 
-            if (Mathf.Abs(rigidbody.position.z) > area.height / 2)
+            if (Mathf.Abs(Rigidbody.position.z) > area.height / 2)
             {
-                rigidbody.position = new Vector3(rigidbody.position.x, rigidbody.position.y, -Mathf.Sign(rigidbody.position.z) * area.height / 2);
-                rigidbody.position -= rigidbody.position.normalized * 0.1f; // offset a little bit to avoid looping back & forth between the 2 edges 
+                Rigidbody.position = new Vector3(Rigidbody.position.x, Rigidbody.position.y, -Mathf.Sign(Rigidbody.position.z) * area.height / 2);
+                Rigidbody.position -= Rigidbody.position.normalized * 0.1f; // offset a little bit to avoid looping back & forth between the 2 edges 
             }
         }
 
@@ -186,8 +177,10 @@ namespace Fusion.Sample.DedicatedServer
             // Debug.Log("RPC_Fire " + info.Source.PlayerId);
             if (AsteroidsGameManager.Instance)
             {
-                var bullet = Runner.Spawn(BulletPrefab, position, rotation, info.Source);
-                bullet.Initialize(info.Source, rotation * Vector3.forward);
+                var bullet = Runner.Spawn(BulletPrefab, position, rotation, info.Source, (runner, obj) =>
+                {
+                    obj.GetComponent<Bullet>().Initialize(info.Source, rotation * Vector3.forward);
+                });
             }
         }
 
@@ -205,6 +198,7 @@ namespace Fusion.Sample.DedicatedServer
             {
                 AsteroidsGameManager.Instance.TryStartGame();
             }
+            isDirty = true;
         }
 
 
@@ -213,12 +207,9 @@ namespace Fusion.Sample.DedicatedServer
         public void RPC_SetColor(Color color, RpcInfo info = default)
         {
             Color = color;
-            GetComponent<MeshRenderer>().material.color = Color;
+            GetComponentInChildren<MeshRenderer>().material.color = Color;
 
-            if (ClientManager.Instance)
-            {
-                PreGamePanel.Instance.Initialize();
-            }
+            isDirty = true;
         }
 
         [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
@@ -227,44 +218,23 @@ namespace Fusion.Sample.DedicatedServer
             Debug.Log("Nickname_Changed " + name, this);
             Nickname = nickname;
 
-            if (ClientManager.Instance)
-            {
-                PreGamePanel.Instance.Initialize();
-            }
+            isDirty = true;
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
         public void RPC_SetGamePhase(GamePhase phase, RpcInfo info = default)
         {
             Debug.Log("RPC_SetGamePhase " + phase + " " + name, this);
-            try
-            {
-                // if (ClientManager.Instance)
-                {
-                    PreGamePanel.Instance.gameObject.SetActive(phase == GamePhase.PreStart);
-                    GamePlayPanel.Instance.gameObject.SetActive(phase == GamePhase.Playing);
-                    PostGamePanel.Instance.gameObject.SetActive(phase == GamePhase.Finished);
 
-                    switch (phase)
-                    {
-                        case GamePhase.PreStart:
-                            PreGamePanel.Instance.Initialize();
-                            break;
-                        case GamePhase.Playing:
-                            GamePlayPanel.Instance.Initialize();
-                            break;
-                        case GamePhase.Finished:
-                            PostGamePanel.Instance.Initialize();
-                            break;
-                    }
-                }
-            }
-            catch (System.Exception e)
+            // if (HasInputAuthority)
             {
-                Debug.LogException(e);
-            }
 
+            }
             CurrentPhase = phase;
+            PreGamePanel.Instance.gameObject.SetActive(phase == GamePhase.PreStart);
+            GamePlayPanel.Instance.gameObject.SetActive(phase == GamePhase.Playing);
+            PostGamePanel.Instance.gameObject.SetActive(phase == GamePhase.Finished);
+            isDirty = true;
         }
 
         [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
@@ -272,6 +242,8 @@ namespace Fusion.Sample.DedicatedServer
         {
             transform.position = position;
             transform.eulerAngles = rotation;
+            isDirty = true;
         }
+
     }
 }

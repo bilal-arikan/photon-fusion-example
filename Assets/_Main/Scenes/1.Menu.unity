@@ -941,7 +941,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 789062863}
   m_Direction: 2
   m_Value: 0
-  m_Size: 0.99999994
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -1817,7 +1817,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Show Room List
+  m_Text: Join Lobby
 --- !u!222 &1588604308
 CanvasRenderer:
   m_ObjectHideFlags: 0

@@ -16,6 +16,7 @@ using Cysharp.Threading.Tasks;
 using Cysharp.Threading.Tasks.Triggers;
 using Fusion;
 using Fusion.Sockets;
+using Sirenix.Utilities;
 using UnityEngine;
 using UnityEngine.UI;
 using Hashtable = ExitGames.Client.Photon.Hashtable;
@@ -43,7 +44,8 @@ namespace Fusion.Sample.DedicatedServer
         [SerializeField] public AsteroidBehaviour[] AsteroidLargePrefabs;
         [SerializeField] public AsteroidBehaviour[] AsteroidSmallPrefabs;
 
-        private readonly Dictionary<PlayerRef, SpaceshipBehaviour> _playerMap = new Dictionary<PlayerRef, SpaceshipBehaviour>();
+        private readonly Dictionary<PlayerRef, SpaceshipBehaviour> _playerMap = new();
+        private readonly List<NetworkBehaviour> _allAstereoids = new();
 
         public void Awake()
         {
@@ -70,12 +72,14 @@ namespace Fusion.Sample.DedicatedServer
             var pos = UnityEngine.Random.insideUnitSphere * 20;
             pos.y = 1;
 
-            var character = runner.Spawn(SpaceshipPrefab, pos, Quaternion.identity, inputAuthority: player);
-            character.RPC_Reposition(pos, Quaternion.identity.eulerAngles);
+            var character = runner.Spawn(SpaceshipPrefab, pos, Quaternion.identity, player, (runner, obj) =>
+            {
+                var ss = obj.GetComponent<SpaceshipBehaviour>();
+            });
 
             _playerMap[player] = character;
 
-            Log.Info($"Spawn for Player: {player}");
+            Log.Info($"Spawn for Player: {player} " + pos);
         }
 
         void INetworkRunnerCallbacks.OnPlayerLeft(NetworkRunner runner, PlayerRef player)
@@ -115,7 +119,7 @@ namespace Fusion.Sample.DedicatedServer
             else
             {
                 Debug.Log("CheckAllPlayersReady false");
-                SpaceshipBehaviour.Local.RPC_SetGamePhase(GamePhase.PreStart);
+                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart));
             }
         }
 
@@ -133,39 +137,43 @@ namespace Fusion.Sample.DedicatedServer
         async UniTask GameLoop()
         {
             CurrentPhase = GamePhase.PreStart;
-            SpaceshipBehaviour.Local.RPC_SetGamePhase(GamePhase.PreStart);
+            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart));
             Debug.Log("RepositionSpaceships!");
             RepositionSpaceships();
 
             await UniTask.Delay(TimeSpan.FromSeconds(2));
 
             CurrentPhase = GamePhase.Playing;
-            SpaceshipBehaviour.Local.RPC_SetGamePhase(GamePhase.Playing);
+            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Playing));
             Debug.Log("SpawnAsteroidLoop!");
             var spawnAstroidTask = SpawnAsteroidLoop();
             await spawnAstroidTask;
+            ClearAsteroids();
 
             CurrentPhase = GamePhase.Finished;
-            SpaceshipBehaviour.Local.RPC_SetGamePhase(GamePhase.Finished);
+            if (Runner.ActivePlayers.Count() > 0)
+            {
+                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Finished));
+            }
             Debug.Log("EndOfGame!");
             await EndOfGame();
-
-            _ = Runner.Shutdown();
         }
 
         void RepositionSpaceships()
         {
-            foreach (var p in Runner.ActivePlayers)
-            {
-                float angularStart = (360.0f / Runner.ActivePlayers.Count()) * p.PlayerId;
-                float x = 20.0f * Mathf.Sin(angularStart * Mathf.Deg2Rad);
-                float z = 20.0f * Mathf.Cos(angularStart * Mathf.Deg2Rad);
-                Vector3 position = new Vector3(x, 0.0f, z);
-                Quaternion rotation = Quaternion.Euler(0.0f, angularStart, 0.0f);
+            ClearAsteroids();
 
-                _playerMap[p].transform.position = position;
-                _playerMap[p].transform.rotation = rotation;
-            }
+            // foreach (var p in Runner.ActivePlayers)
+            // {
+            //     float angularStart = (360.0f / Runner.ActivePlayers.Count()) * p.PlayerId;
+            //     float x = 20.0f * Mathf.Sin(angularStart * Mathf.Deg2Rad);
+            //     float z = 20.0f * Mathf.Cos(angularStart * Mathf.Deg2Rad);
+            //     Vector3 position = new Vector3(x, 0.0f, z);
+            //     Quaternion rotation = Quaternion.Euler(0.0f, angularStart, 0.0f);
+
+            //     _playerMap[p].transform.position = position;
+            //     _playerMap[p].transform.rotation = rotation;
+            // }
         }
 
         async UniTask SpawnAsteroidLoop()
@@ -194,16 +202,19 @@ namespace Fusion.Sample.DedicatedServer
             // Offset slightly so we are not out of screen at creation time (as it would destroy the asteroid right away)
             position -= position.normalized * 0.1f;
 
-            Vector3 force = -position.normalized * 1000.0f;
-            Vector3 torque = Random.insideUnitSphere * Random.Range(500.0f, 1500.0f);
+            Vector3 force = UnityEngine.Random.insideUnitCircle.X_Z() * 200.0f;
+            Vector3 torque = Random.insideUnitSphere * Random.Range(200.0f, 500.0f);
 
             var ast = Runner.Spawn(
                 AsteroidLargePrefabs[0],
                 position,
                 Quaternion.Euler(Random.value * 360.0f, Random.value * 360.0f, Random.value * 360.0f),
-                inputAuthority: null);
-
-            ast.Initialize(force, torque, true);
+                 null,
+                (runner, obj) =>
+                {
+                    obj.GetComponent<AsteroidBehaviour>().Initialize(force, torque, true);
+                });
+            _allAstereoids.Add(ast);
             // Debug.Log("New asteroid");
             return ast;
         }
@@ -213,15 +224,20 @@ namespace Fusion.Sample.DedicatedServer
             AsteroidBehaviour[] asteroids = new AsteroidBehaviour[amount];
             for (int i = 0; i < amount; i++)
             {
-                Vector3 force = Quaternion.Euler(0, i * 360.0f / amount, 0) * Vector3.forward * Random.Range(0.5f, 1.5f) * 300.0f;
-                Vector3 torque = Random.insideUnitSphere * Random.Range(500.0f, 1500.0f);
+                Vector3 force = Quaternion.Euler(0, i * 360.0f / amount, 0) * Vector3.forward * Random.Range(0.5f, 1.5f) * 100.0f;
+                Vector3 torque = Random.insideUnitSphere * Random.Range(200.0f, 500.0f);
 
-                asteroids[i] = Runner.Spawn<AsteroidBehaviour>(
+                var a = Runner.Spawn<AsteroidBehaviour>(
                     AsteroidsGameManager.Instance.AsteroidSmallPrefabs[0],
-                    transform.position + force.normalized * 10.0f,
+                    position + force.normalized * .5f,
                     Quaternion.Euler(0, Random.value * 180.0f, 0),
-                    null);
-                asteroids[i].Initialize(force, torque, false);
+                    null,
+                    (runner, obj) =>
+                    {
+                        obj.GetComponent<AsteroidBehaviour>().Initialize(force, torque, false);
+                    });
+                asteroids[i] = a;
+                _allAstereoids.Add(a);
             }
             return asteroids;
         }
@@ -230,16 +246,30 @@ namespace Fusion.Sample.DedicatedServer
         public async UniTask SplitAsteroid(AsteroidBehaviour asteroid)
         {
             var position = asteroid.transform.position;
-            Runner.Despawn(asteroid.Object);
+            DestroyAsteroid(asteroid);
+
             if (asteroid.isLargeAsteroid)
             {
-                await UniTask.Delay(TimeSpan.FromSeconds(0.5f));
+                await UniTask.Delay(TimeSpan.FromSeconds(0.1f));
 
                 int numberToSpawn = Random.Range(3, 6);
                 AsteroidsGameManager.Instance.SpawnSmallAsteroids(position, numberToSpawn);
             }
         }
 
+        public void DestroyAsteroid(AsteroidBehaviour asteroid)
+        {
+            _allAstereoids.Remove(asteroid);
+            Runner.Despawn(asteroid.Object);
+        }
+
+        public void ClearAsteroids()
+        {
+            foreach (var item in _allAstereoids.ToArray())
+            {
+                DestroyAsteroid(item as AsteroidBehaviour);
+            }
+        }
 
         bool IsGameEnded()
         {
@@ -251,6 +281,8 @@ namespace Fusion.Sample.DedicatedServer
         private async UniTask EndOfGame()
         {
             await UniTask.Delay(TimeSpan.FromSeconds(5f));
+
+            ClearAsteroids();
 
             // bool allPlayersDestroyed = true;
 

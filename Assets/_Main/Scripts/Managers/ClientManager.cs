@@ -18,25 +18,45 @@ namespace Fusion.Sample.DedicatedServer
         [SerializeField] private NetworkRunner _runnerPrefab;
 
         public static NetworkRunner Runner { get; private set; }
+        private SpaceShipNetworkInput input;
 
         void Awake()
         {
             Instance = this;
             Application.targetFrameRate = 60;
             Application.runInBackground = true;
+            DontDestroyOnLoad(gameObject);
         }
 
         private void Start()
         {
-            if (AsteroidsGameManager.Instance == null)
-                StartClient("");
+            // if (AsteroidsGameManager.Instance == null)
+            //     StartClient("");
+        }
+
+        private void Update()
+        {
+            input = new()
+            {
+                isShooting = Input.GetKey(KeyCode.Space),
+                rotation = Input.GetAxis("Horizontal"),
+                acceleration = Input.GetAxis("Vertical"),
+            };
         }
 
         public async UniTask<bool> StartClient(string sessionName)
         {
-            Runner = CreateRunner("Client");
+            if (Runner == null)
+                Runner = CreateRunner("Client");
 
-            var result = await StartSimulation(Runner, GameMode.Client, sessionName);
+            var result = await Runner.StartGame(new StartGameArgs()
+            {
+                SessionName = sessionName,
+                GameMode = GameMode.Client,
+                SceneManager = Runner.gameObject.AddComponent<NetworkSceneManagerDefault>(),
+                Scene = SceneManager.GetActiveScene().buildIndex,
+                DisableClientSessionCreation = true,
+            });
 
             if (result.Ok == false)
             {
@@ -52,7 +72,8 @@ namespace Fusion.Sample.DedicatedServer
 
         public async UniTask<bool> JoinLobby(string lobbyName)
         {
-            Runner = CreateRunner("Client");
+            if (Runner == null)
+                Runner = CreateRunner("Client");
 
             var result = await JoinLobby(Runner, lobbyName);
 
@@ -78,26 +99,11 @@ namespace Fusion.Sample.DedicatedServer
             return runner;
         }
 
-        public Task<StartGameResult> StartSimulation(
-            NetworkRunner runner,
-            GameMode gameMode,
-            string sessionName
-          )
-        {
-
-            return runner.StartGame(new StartGameArgs()
-            {
-                SessionName = sessionName,
-                GameMode = gameMode,
-                SceneManager = runner.gameObject.AddComponent<NetworkSceneManagerDefault>(),
-                Scene = SceneManager.GetActiveScene().buildIndex,
-                DisableClientSessionCreation = true,
-            });
-        }
-
         public Task<StartGameResult> JoinLobby(NetworkRunner runner, string lobbyName)
         {
-            return runner.JoinSessionLobby(string.IsNullOrEmpty(lobbyName) ? SessionLobby.ClientServer : SessionLobby.Custom, lobbyName);
+            return runner.JoinSessionLobby(
+                string.IsNullOrEmpty(lobbyName) ? SessionLobby.ClientServer : SessionLobby.Custom,
+                lobbyName);
         }
 
         // ------------ RUNNER CALLBACKS ------------------------------------------------------------------------------------
@@ -109,6 +115,7 @@ namespace Fusion.Sample.DedicatedServer
             {
                 SceneManager.LoadScene((byte)SceneDefs.MENU);
             }
+            Destroy(gameObject);
         }
 
         public void OnDisconnectedFromServer(NetworkRunner runner)
@@ -130,12 +137,19 @@ namespace Fusion.Sample.DedicatedServer
         // Other callbacks
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            if (PreGamePanel.Instance != null)
-                PreGamePanel.Instance.Initialize();
-            if (GamePlayPanel.Instance != null)
-                GamePlayPanel.Instance.Initialize();
-            if (PostGamePanel.Instance != null)
-                PostGamePanel.Instance.Initialize();
+            if (SpaceshipBehaviour.Local)
+            {
+                SpaceshipBehaviour.Local.RPC_SetReady(SpaceshipBehaviour.Local.IsReady);
+                SpaceshipBehaviour.Local.RPC_SetColor(SpaceshipBehaviour.Local.Color);
+                SpaceshipBehaviour.Local.RPC_SetNickname(SpaceshipBehaviour.Local.Nickname);
+            }
+
+            // if (PreGamePanel.Instance != null)
+            //     PreGamePanel.Instance.Initialize();
+            // if (GamePlayPanel.Instance != null)
+            //     GamePlayPanel.Instance.Initialize();
+            // if (PostGamePanel.Instance != null)
+            //     PostGamePanel.Instance.Initialize();
         }
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
@@ -146,12 +160,10 @@ namespace Fusion.Sample.DedicatedServer
             if (PostGamePanel.Instance != null)
                 PostGamePanel.Instance.Initialize();
         }
+
         public void OnInput(NetworkRunner runner, NetworkInput input)
         {
-            if (SpaceshipBehaviour.Local)
-            {
-                input.Set(SpaceshipBehaviour.Local.GetLocalInput());
-            }
+            input.Set(this.input);
         }
         public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
         public void OnConnectedToServer(NetworkRunner runner)
