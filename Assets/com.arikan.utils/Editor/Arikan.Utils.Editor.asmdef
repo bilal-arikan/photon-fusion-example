@@ -1,0 +1,19 @@
+{
+    "name": "Arikan.Utils.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:ec482f10ff099704581e9667b385b5ae",
+        "GUID:4129704b5a1a13841ba16f230bf24a57"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

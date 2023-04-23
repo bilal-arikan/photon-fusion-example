@@ -1,0 +1,17 @@
+{
+  "name": "com.arikan.utils",
+  "displayName": "Arikan Framework Utils",
+  "version": "2.2.0",
+  "unity": "2020.1",
+  "author": "Bilal Arikan",
+  "description": "Extension And Util Codes",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bilal-arikan/ArikanPackage.git"
+  },
+  "dependencies": {
+    "com.unity.recorder": "3.0.3",
+    "com.unity.mobile.android-logcat": "1.2.3",
+    "com.unity.addressables": "1.19.19"
+  }
+}
