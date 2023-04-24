@@ -168,8 +168,18 @@ namespace Fusion.Sample.DedicatedServer
             PhaseChangeTime = DateTime.Now;
             SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Playing, DateTime.Now.ToBinary()));
             Debug.Log("SpawnAsteroidLoop!");
-            var spawnAstroidTask = SpawnAsteroidLoop();
-            await spawnAstroidTask;
+            while (true)
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(Random.Range(ASTEROIDS_MIN_SPAWN_TIME, ASTEROIDS_MAX_SPAWN_TIME)));
+
+                if (IsGameEnded())
+                {
+                    Debug.Log("Game Ended");
+                    break;
+                }
+
+                SpawnBigAsteroid();
+            }
             ClearAsteroids();
 
             CurrentPhase = GamePhase.Finished;
@@ -185,7 +195,8 @@ namespace Fusion.Sample.DedicatedServer
             if (Runner.ActivePlayers.Count() > 0)
             {
                 Debug.Log("Restart Game");
-                await GameLoop();
+                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetReady(false));
+                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart, DateTime.Now.ToBinary()));
             }
         }
 
@@ -204,22 +215,6 @@ namespace Fusion.Sample.DedicatedServer
             //     _playerMap[p].transform.position = position;
             //     _playerMap[p].transform.rotation = rotation;
             // }
-        }
-
-        async UniTask SpawnAsteroidLoop()
-        {
-            while (true)
-            {
-                await UniTask.Delay(TimeSpan.FromSeconds(Random.Range(ASTEROIDS_MIN_SPAWN_TIME, ASTEROIDS_MAX_SPAWN_TIME)));
-
-                if (IsGameEnded())
-                {
-                    Debug.Log("Game Ended");
-                    break;
-                }
-
-                SpawnBigAsteroid();
-            }
         }
 
         public AsteroidBehaviour SpawnBigAsteroid()
