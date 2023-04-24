@@ -35,6 +35,8 @@ namespace Fusion.Sample.DedicatedServer
             // Continue with start the Dedicated Server
             Application.targetFrameRate = 30;
 
+            await UnityAuthentication.Instance.Initialize();
+
             var config = DedicatedServerConfig.Resolve();
             Debug.Log(config);
 
@@ -120,20 +122,6 @@ namespace Fusion.Sample.DedicatedServer
                 CustomPhotonAppSettings = photonSettings,
                 PlayerCount = AsteroidsGameManager.PLAYER_COUNT_TO_START,
             });
-        }
-
-        async UniTask InitializeUnityService()
-        {
-            await UnityServices.InitializeAsync();
-
-            MultiplayEventCallbacks multiplayCallbacks = new();
-
-            var serverConfig = MultiplayService.Instance.ServerConfig;
-            if (!string.IsNullOrEmpty(serverConfig.AllocationId))
-            {
-
-            }
-
         }
     }
 }

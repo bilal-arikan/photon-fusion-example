@@ -22,6 +22,8 @@ namespace Fusion.Sample.DedicatedServer
 
         public static NetworkRunner Runner { get; private set; }
         private SpaceShipNetworkInput input;
+        private CreateTicketResponse mmTicketResponse;
+        private float pollTicketTimer;
 
         void Awake()
         {
@@ -35,6 +37,7 @@ namespace Fusion.Sample.DedicatedServer
         {
             // if (AsteroidsGameManager.Instance == null)
             //     StartClient("");
+
         }
 
         private void Update()
@@ -45,6 +48,16 @@ namespace Fusion.Sample.DedicatedServer
                 rotation = Input.GetAxis("Horizontal"),
                 acceleration = Input.GetAxis("Vertical"),
             };
+
+            if (mmTicketResponse != null)
+            {
+                pollTicketTimer -= Time.deltaTime;
+                if (pollTicketTimer < 0)
+                {
+                    pollTicketTimer = 2f;
+                    PollMatchMakerTicket();
+                }
+            }
         }
 
         public async UniTask<bool> StartClient(string sessionName)
@@ -75,7 +88,7 @@ namespace Fusion.Sample.DedicatedServer
 
         public async UniTask<CreateTicketResponse> FindMatch()
         {
-            var ticketResponse = await MatchmakerService.Instance.CreateTicketAsync(new List<Player>(){
+            mmTicketResponse = await MatchmakerService.Instance.CreateTicketAsync(new List<Player>(){
                 new Player(
                     AuthenticationService.Instance.PlayerId,
                     new Dictionary<string,string>(){
@@ -86,7 +99,50 @@ namespace Fusion.Sample.DedicatedServer
             {
                 QueueName = "QueA"
             });
-            return ticketResponse;
+            return mmTicketResponse;
+        }
+
+        private async void PollMatchMakerTicket()
+        {
+            var statusResponse = await MatchmakerService.Instance.GetTicketAsync(mmTicketResponse.Id);
+
+            if (statusResponse == null)
+            {
+                return;
+            }
+
+            if (statusResponse.Value is MultiplayAssignment multiplayAssignment)
+            {
+                switch (multiplayAssignment.Status)
+                {
+                    case MultiplayAssignment.StatusOptions.Found:
+                        mmTicketResponse = null;
+
+                        Debug.Log(multiplayAssignment.Ip + " " + multiplayAssignment.Port);
+
+                        // var result = await Runner.StartGame(new StartGameArgs()
+                        // {
+                        //     SessionName = sessionName,
+                        //     GameMode = GameMode.Client,
+                        //     SceneManager = Runner.gameObject.AddComponent<NetworkSceneManagerDefault>(),
+                        //     Scene = SceneManager.GetActiveScene().buildIndex,
+                        //     DisableClientSessionCreation = true,
+                        //     Address
+                        // });
+
+                        break;
+                    case MultiplayAssignment.StatusOptions.Failed:
+                        Debug.LogError("Matchmaking failed. " + multiplayAssignment.Message);
+                        break;
+                    case MultiplayAssignment.StatusOptions.Timeout:
+                        Debug.LogError("Matchmaking timed out");
+                        break;
+                    case MultiplayAssignment.StatusOptions.InProgress:
+                        break;
+                    default:
+                        throw new InvalidOperationException();
+                }
+            }
         }
 
         public async UniTask<bool> JoinLobby(string lobbyName)
