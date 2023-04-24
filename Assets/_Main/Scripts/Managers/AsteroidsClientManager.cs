@@ -6,8 +6,10 @@ using Cysharp.Threading.Tasks;
 using Fusion.Sockets;
 using Photon.Pun.Demo.Asteroids;
 using Unity.Services.Authentication;
+using Unity.Services.Core;
 using Unity.Services.Matchmaker;
 using Unity.Services.Matchmaker.Models;
+using Unity.Services.Multiplay;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -24,6 +26,7 @@ namespace Fusion.Sample.DedicatedServer
         private SpaceShipNetworkInput input;
         private CreateTicketResponse mmTicketResponse;
         private float pollTicketTimer;
+        private UniTaskCompletionSource<bool> pollMatchMaker;
 
         void Awake()
         {
@@ -33,11 +36,26 @@ namespace Fusion.Sample.DedicatedServer
             DontDestroyOnLoad(gameObject);
         }
 
-        private void Start()
+        private async void Start()
         {
             // if (AsteroidsGameManager.Instance == null)
             //     StartClient("");
 
+            if (UnityServices.State != ServicesInitializationState.Initialized)
+            {
+                InitializationOptions options = new();
+                options.SetProfile(UnityEngine.Random.Range(0, 99999).ToString());
+                await UnityServices.InitializeAsync(options);
+
+                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+
+                Debug.Log("UnityServices initialized");
+            }
+            else
+            {
+                Debug.Log("UnityServices already initialized");
+                var serverConfig = MultiplayService.Instance.ServerConfig;
+            }
         }
 
         private void Update()
@@ -86,7 +104,7 @@ namespace Fusion.Sample.DedicatedServer
             }
         }
 
-        public async UniTask<CreateTicketResponse> FindMatch()
+        public async UniTask<UniTask<bool>> FindMatch()
         {
             mmTicketResponse = await MatchmakerService.Instance.CreateTicketAsync(new List<Player>(){
                 new Player(
@@ -99,7 +117,13 @@ namespace Fusion.Sample.DedicatedServer
             {
                 QueueName = "QueA"
             });
-            return mmTicketResponse;
+
+            if (pollMatchMaker != null)
+            {
+                pollMatchMaker.TrySetException(new Exception("new find match started"));
+            }
+            pollMatchMaker = new();
+            return pollMatchMaker.Task;
         }
 
         private async void PollMatchMakerTicket()
@@ -108,6 +132,7 @@ namespace Fusion.Sample.DedicatedServer
 
             if (statusResponse == null)
             {
+                Debug.LogError("statusResponse null");
                 return;
             }
 
@@ -119,30 +144,41 @@ namespace Fusion.Sample.DedicatedServer
                         mmTicketResponse = null;
 
                         Debug.Log(multiplayAssignment.Ip + " " + multiplayAssignment.Port);
+                        pollMatchMaker.TrySetResult(true);
+                        pollMatchMaker = null;
 
-                        // var result = await Runner.StartGame(new StartGameArgs()
-                        // {
-                        //     SessionName = sessionName,
-                        //     GameMode = GameMode.Client,
-                        //     SceneManager = Runner.gameObject.AddComponent<NetworkSceneManagerDefault>(),
-                        //     Scene = SceneManager.GetActiveScene().buildIndex,
-                        //     DisableClientSessionCreation = true,
-                        //     Address
-                        // });
+                        var result = await Runner.StartGame(new StartGameArgs()
+                        {
+                            SessionName = "MySession",
+                            GameMode = GameMode.Client,
+                            SceneManager = Runner.gameObject.AddComponent<NetworkSceneManagerDefault>(),
+                            Scene = SceneManager.GetActiveScene().buildIndex,
+                            DisableClientSessionCreation = true,
+                            Address = NetAddress.CreateFromIpPort(multiplayAssignment.Ip, (ushort)multiplayAssignment.Port),
+                        });
 
                         break;
                     case MultiplayAssignment.StatusOptions.Failed:
+                        mmTicketResponse = null;
                         Debug.LogError("Matchmaking failed. " + multiplayAssignment.Message);
+                        pollMatchMaker.TrySetResult(false);
+                        pollMatchMaker = null;
                         break;
                     case MultiplayAssignment.StatusOptions.Timeout:
+                        mmTicketResponse = null;
                         Debug.LogError("Matchmaking timed out");
+                        pollMatchMaker.TrySetResult(false);
+                        pollMatchMaker = null;
                         break;
                     case MultiplayAssignment.StatusOptions.InProgress:
+                        Debug.Log("Matchmaking InProgress");
                         break;
                     default:
                         throw new InvalidOperationException();
                 }
             }
+            else
+                Debug.Log(statusResponse.Type.Name + " " + statusResponse.Value);
         }
 
         public async UniTask<bool> JoinLobby(string lobbyName)

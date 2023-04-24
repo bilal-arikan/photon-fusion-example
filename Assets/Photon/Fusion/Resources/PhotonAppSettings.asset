@@ -19,8 +19,8 @@ MonoBehaviour:
     AppVersion: 
     UseNameServer: 1
     FixedRegion: 
-    Server: 
-    Port: 27015
+    Server: 34.159.253.9
+    Port: 9000
     ProxyServer: 
     Protocol: 0
     EnableProtocolFallback: 1

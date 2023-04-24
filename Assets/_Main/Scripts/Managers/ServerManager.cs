@@ -37,7 +37,7 @@ namespace Fusion.Sample.DedicatedServer
         private const string k_DefaultBuildId = "MyBuildId";
         private const string k_DefaultMap = "MyMap";
 
-        async void Start()
+        void Start()
         {
             // Load Menu Scene if not Running in Headless Mode
             // This can be replaced with a check to UNITY_SERVER if running on Unity 2021.2+
@@ -51,40 +51,46 @@ namespace Fusion.Sample.DedicatedServer
             // Continue with start the Dedicated Server
             Application.targetFrameRate = 30;
 
+            _ = Initialize().Catch(Debug.LogException);
+        }
+
+        async UniTask Initialize()
+        {
             var config = DedicatedServerConfig.Resolve();
             Debug.Log(config);
 
             // Start a new Runner instance
-            var runner = Instantiate(_runnerPrefab);
+            if (Runner == null)
+                Runner = Instantiate(_runnerPrefab);
 
-            // Start the Server
-            var result = await StartSimulation(
-              runner,
-              config.SessionName,
-              config.SessionProperties,
-              config.Port,
-              config.Lobby,
-              config.Region,
-              config.PublicIP,
-              config.PublicPort
-            );
+            // // Start the Server
+            // var result = await StartSimulation(
+            //   runner,
+            //   config.SessionName,
+            //   config.SessionProperties,
+            //   config.Port,
+            //   config.Lobby,
+            //   config.Region,
+            //   config.PublicIP,
+            //   config.PublicPort
+            // );
 
-            // Check if all went fine
-            if (result.Ok)
-            {
-                Log.Debug($"Runner Start DONE");
-            }
-            else
-            {
-                // Quit the application if startup fails
-                Log.Debug($"Error while starting Server: {result.ShutdownReason}");
+            // // Check if all went fine
+            // if (result.Ok)
+            // {
+            //     Log.Debug($"Runner Start DONE");
+            // }
+            // else
+            // {
+            //     // Quit the application if startup fails
+            //     Log.Debug($"Error while starting Server: {result.ShutdownReason}");
 
-                // it can be used any error code that can be read by an external application
-                // using 0 means all went fine
-                Application.Quit(1);
-            }
+            //     // it can be used any error code that can be read by an external application
+            //     // using 0 means all went fine
+            //     Application.Quit(1);
+            // }
 
-            // await Initialize();
+            await InitializeUnityServerHosting();
         }
 
         private void Update()
@@ -94,13 +100,13 @@ namespace Fusion.Sample.DedicatedServer
                 if (acceptBackfillTicketTimer < 0)
                 {
                     acceptBackfillTicketTimer = 5f;
-                    HandleBackfillTickets();
+                    _ = HandleBackfillTickets().Catch(Debug.LogException);
                 }
                 acceptBackfillTicketTimer -= Time.unscaledDeltaTime;
             }
         }
 
-        public async UniTask Initialize()
+        public async UniTask InitializeUnityServerHosting()
         {
             if (UnityServices.State != ServicesInitializationState.Initialized)
             {
@@ -144,19 +150,50 @@ namespace Fusion.Sample.DedicatedServer
 
         private void MultiplayCallbacks_SubscriptionStateChanged(MultiplayServerSubscriptionState obj)
         {
+            Debug.Log("MultiplayCallbacks_SubscriptionStateChanged " + obj);
+            switch (obj)
+            {
+                case MultiplayServerSubscriptionState.Error:
+
+                    break;
+                case MultiplayServerSubscriptionState.Subscribing:
+
+                    break;
+                case MultiplayServerSubscriptionState.Synced:
+
+                    break;
+                case MultiplayServerSubscriptionState.Unsubscribed:
+
+                    break;
+                case MultiplayServerSubscriptionState.Unsynced:
+
+                    break;
+            }
         }
 
         private void MultiplayCallbacks_Deallocate(MultiplayDeallocation obj)
         {
+            Debug.Log("MultiplayCallbacks_Deallocate");
         }
 
-        private void MultiplayCallbacks_Allocate(MultiplayAllocation obj)
+        private async void MultiplayCallbacks_Allocate(MultiplayAllocation obj)
         {
             var serverConfig = MultiplayService.Instance.ServerConfig;
             Debug.Log($"{serverConfig.IpAddress} {serverConfig.Port} {serverConfig.QueryPort} {serverConfig.ServerId}");
 
             // StartServer
-            var result = StartSimulation(serverConfig);
+            var result = await StartSimulation(serverConfig);
+            if (result.Ok)
+            {
+                Debug.Log("StartSimulation OK");
+            }
+            else
+            {
+                Debug.LogError("StartSimulation Error " + result.ShutdownReason);
+                return;
+            }
+
+            await MultiplayService.Instance.ReadyServerForPlayersAsync();
 
             SetupBackfillTickets();
         }
@@ -167,14 +204,15 @@ namespace Fusion.Sample.DedicatedServer
 
             backfillTicketId = payloadAllocations.BackfillTicketId;
             acceptBackfillTicketTimer = 5f;
-
+            Debug.Log("SetupBackfillTickets done");
         }
 
-        private async void HandleBackfillTickets()
+        private async UniTask HandleBackfillTickets()
         {
             // if enough player slot available
             if (Runner != null && Runner.ActivePlayers.Count() < AsteroidsGameManager.PLAYER_COUNT_TO_START)
             {
+                Debug.Log("HandleBackfillTickets");
                 var ticket = await MatchmakerService.Instance.ApproveBackfillTicketAsync(backfillTicketId);
                 backfillTicketId = ticket.Id;
             }
@@ -184,10 +222,7 @@ namespace Fusion.Sample.DedicatedServer
         {
             if (backfillTicketId != null && payloadAllocations != null && Runner != null && Runner.ActivePlayers.Count() < AsteroidsGameManager.PLAYER_COUNT_TO_START)
             {
-                var playerList = new List<Player>();
-
-                // TODO
-                // Get player list
+                var playerList = Runner.ActivePlayers.Where(p => p.IsValid).Select(p => new Player(p.PlayerId.ToString())).ToList();
 
                 MatchProperties matchProperties = new(
                     payloadAllocations.MatchProperties.Teams,
@@ -201,6 +236,7 @@ namespace Fusion.Sample.DedicatedServer
                     await MatchmakerService.Instance.UpdateBackfillTicketAsync(payloadAllocations.BackfillTicketId, new BackfillTicket(
                         backfillTicketId, properties: new(matchProperties)
                     ));
+                    Debug.Log("UpdateBackfillTicketAsync done");
                 }
                 catch (System.Exception e)
                 {
@@ -225,14 +261,13 @@ namespace Fusion.Sample.DedicatedServer
               config.Port,
               "MyLobby",
               "",
-              config.IpAddress,
-              config.Port
+              "0.0.0.0"
             );
 
             // Check if all went fine
             if (result.Ok)
             {
-                Log.Debug($"Runner Start DONE");
+                Log.Debug($"Runner Start DONE " + config.IpAddress + ":" + config.Port);
             }
             else
             {

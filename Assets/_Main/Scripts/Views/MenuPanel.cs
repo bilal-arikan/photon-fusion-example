@@ -18,6 +18,7 @@ namespace Photon.Pun.Demo.Asteroids
         public Button JoinRandomGameButton;
         public Button JoinLobbyButton;
         public Button FindMatchButton;
+        public GameObject SearchingAMatch;
 
         private void Start()
         {
@@ -37,9 +38,12 @@ namespace Photon.Pun.Demo.Asteroids
             });
             FindMatchButton.onClick.AddListener(async () =>
             {
+                SearchingAMatch.SetActive(true);
                 FindMatchButton.interactable = false;
-                var result = await AsteroidsClientManager.Instance.FindMatch();
+                var waitResponseTask = await AsteroidsClientManager.Instance.FindMatch().Catch(Debug.LogException);
+                await waitResponseTask;
                 FindMatchButton.interactable = true;
+                SearchingAMatch.SetActive(false);
             });
 
             PlayerNameInput.text = PlayerPrefs.GetString("Nickname", "Player " + UnityEngine.Random.Range(1000, 10000));

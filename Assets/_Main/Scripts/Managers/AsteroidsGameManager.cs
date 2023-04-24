@@ -66,16 +66,16 @@ namespace Fusion.Sample.DedicatedServer
             Debug.Log("AsteroidsGameManager Start", this);
         }
 
-        private void Update()
-        {
-            if (CurrentPhase == GamePhase.Playing)
-            {
-                if (TOTAL_GAME_TIME - (DateTime.Now - PhaseChangeTime) < TimeSpan.Zero)
-                {
-                    Debug.Log("Times Up");
-                }
-            }
-        }
+        // private void Update()
+        // {
+        //     if (CurrentPhase == GamePhase.Playing)
+        //     {
+        //         if (TOTAL_GAME_TIME - (DateTime.Now - PhaseChangeTime) < TimeSpan.Zero)
+        //         {
+        //             Debug.Log("Times Up");
+        //         }
+        //     }
+        // }
 
         void INetworkRunnerCallbacks.OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
