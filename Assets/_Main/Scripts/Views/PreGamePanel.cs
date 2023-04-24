@@ -36,6 +36,11 @@ public class PreGamePanel : SingletonBehaviour<PreGamePanel>
         });
     }
 
+    void OnEnable()
+    {
+        PlayerReadyButton.interactable = true;
+    }
+
     public void Initialize()
     {
         PlayerReadyButton.interactable = SpaceshipBehaviour.Local && !SpaceshipBehaviour.Local.IsReady;

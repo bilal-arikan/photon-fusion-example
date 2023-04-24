@@ -8,6 +8,7 @@
 // <author>developer@exitgames.com</author>
 // --------------------------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
@@ -24,6 +25,7 @@ namespace Fusion.Sample.DedicatedServer
         [ShowInInspector] public static SpaceshipBehaviour Local { get; private set; }
 
         [ShowInInspector] public GamePhase CurrentPhase { get; private set; }
+        public DateTime PhaseChangeTime { get; private set; }
         public string Nickname { get; private set; }
         public Color Color { get; private set; } = Color.white;
         public bool IsReady { get; private set; }
@@ -184,7 +186,7 @@ namespace Fusion.Sample.DedicatedServer
             }
         }
 
-        [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
+        [Rpc(RpcSources.All, RpcTargets.All)]
         public void RPC_SetReady(bool ready, RpcInfo info = default)
         {
             Debug.Log("IsReady_Changed " + ready + " " + name, this);
@@ -222,8 +224,9 @@ namespace Fusion.Sample.DedicatedServer
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-        public void RPC_SetGamePhase(GamePhase phase, RpcInfo info = default)
+        public void RPC_SetGamePhase(GamePhase phase, long startDateTime, RpcInfo info = default)
         {
+
             Debug.Log("RPC_SetGamePhase " + phase + " " + name, this);
 
             // if (HasInputAuthority)
@@ -231,6 +234,7 @@ namespace Fusion.Sample.DedicatedServer
 
             }
             CurrentPhase = phase;
+            PhaseChangeTime = DateTime.FromBinary(startDateTime);
             PreGamePanel.Instance.gameObject.SetActive(phase == GamePhase.PreStart);
             GamePlayPanel.Instance.gameObject.SetActive(phase == GamePhase.Playing);
             PostGamePanel.Instance.gameObject.SetActive(phase == GamePhase.Finished);

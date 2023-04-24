@@ -34,12 +34,14 @@ namespace Fusion.Sample.DedicatedServer
     [SimulationBehaviour(Modes = SimulationModes.Server)]
     public class AsteroidsGameManager : SimulationBehaviour, INetworkRunnerCallbacks
     {
+        public static readonly TimeSpan TOTAL_GAME_TIME = TimeSpan.FromSeconds(30);
         public const int PLAYER_COUNT_TO_START = 3;
         const float ASTEROIDS_MIN_SPAWN_TIME = 3;
         const float ASTEROIDS_MAX_SPAWN_TIME = 6;
 
         public static AsteroidsGameManager Instance = null;
         public GamePhase CurrentPhase { get; private set; }
+        public DateTime PhaseChangeTime { get; private set; }
 
         [SerializeField] private SpaceshipBehaviour SpaceshipPrefab;
         [SerializeField] public AsteroidBehaviour[] AsteroidLargePrefabs;
@@ -62,6 +64,17 @@ namespace Fusion.Sample.DedicatedServer
         public void Start()
         {
             Debug.Log("AsteroidsGameManager Start", this);
+        }
+
+        private void Update()
+        {
+            if (CurrentPhase == GamePhase.Playing)
+            {
+                if (TOTAL_GAME_TIME - (DateTime.Now - PhaseChangeTime) < TimeSpan.Zero)
+                {
+                    Debug.Log("Times Up");
+                }
+            }
         }
 
         void INetworkRunnerCallbacks.OnPlayerJoined(NetworkRunner runner, PlayerRef player)
@@ -120,7 +133,7 @@ namespace Fusion.Sample.DedicatedServer
             else
             {
                 Debug.Log("CheckAllPlayersReady false");
-                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart));
+                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart, DateTime.Now.ToBinary()));
             }
         }
 
@@ -143,26 +156,37 @@ namespace Fusion.Sample.DedicatedServer
         async UniTask GameLoop()
         {
             CurrentPhase = GamePhase.PreStart;
-            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart));
+            PhaseChangeTime = DateTime.Now;
+            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart, DateTime.Now.ToBinary()));
+            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetColor(i.Value.Color));
             Debug.Log("RepositionSpaceships!");
             RepositionSpaceships();
 
             await UniTask.Delay(TimeSpan.FromSeconds(2));
 
             CurrentPhase = GamePhase.Playing;
-            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Playing));
+            PhaseChangeTime = DateTime.Now;
+            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Playing, DateTime.Now.ToBinary()));
             Debug.Log("SpawnAsteroidLoop!");
             var spawnAstroidTask = SpawnAsteroidLoop();
             await spawnAstroidTask;
             ClearAsteroids();
 
             CurrentPhase = GamePhase.Finished;
+            PhaseChangeTime = DateTime.Now;
             if (Runner.ActivePlayers.Count() > 0)
             {
-                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Finished));
+                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Finished, DateTime.Now.ToBinary()));
+                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetReady(false));
             }
             Debug.Log("EndOfGame!");
             await EndOfGame();
+
+            if (Runner.ActivePlayers.Count() > 0)
+            {
+                Debug.Log("Restart Game");
+                await GameLoop();
+            }
         }
 
         void RepositionSpaceships()
@@ -281,6 +305,17 @@ namespace Fusion.Sample.DedicatedServer
         {
             if (Runner.ActivePlayers.Count() == 0)
                 return true;
+
+            if (CurrentPhase == GamePhase.Playing)
+            {
+                if (TOTAL_GAME_TIME - (DateTime.Now - PhaseChangeTime) < TimeSpan.Zero)
+                {
+                    Debug.Log("Times Up");
+                    PhaseChangeTime = DateTime.Now;
+                    return true;
+                }
+            }
+
             return false;
         }
 
