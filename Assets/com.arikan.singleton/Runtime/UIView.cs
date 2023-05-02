@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Sirenix.OdinInspector;
+
 using UnityEngine;
 #if COM_CYSHARP_UNITASK
 using Cysharp.Threading.Tasks;
@@ -29,15 +29,13 @@ namespace Arikan
     {
         public static List<IUIView> OpenedViews = new List<IUIView>();
     }
-    public abstract class UIView<T> : SingletonBehaviour<T>, IUIView where T : SerializedMonoBehaviour
+    public abstract class UIView<T> : SingletonBehaviour<T>, IUIView where T : MonoBehaviour
     {
         public IUIView ParentView => !string.IsNullOrEmpty(Group) ? this.GetComponentInParent<IUIView>() : null;
         public bool IsOpen => gameObject.activeInHierarchy;
         public abstract string Group { get; }
-        [PropertySpace(0, 12)]
         public CanvasGroup CanvasGroup;
         public RectTransform rectTransform => transform as RectTransform;
-        [ShowInInspector]
         List<IUIView> Openeds => UIViewStorage.OpenedViews;
 
         public event Action onEnabled;
@@ -56,10 +54,8 @@ namespace Arikan
             return promiseOpen.Task;
         }
 #endif
-        [Button]
         public void Open() => Open(true);
         public virtual void Open(bool withAnim) => gameObject.SetActive(true);
-        [Button]
         public void Close() => Close(true);
         public virtual void Close(bool withAnim) => gameObject.SetActive(false);
 

@@ -13,7 +13,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Fusion;
-using Sirenix.OdinInspector;
+
 using UnityEngine;
 using Hashtable = ExitGames.Client.Photon.Hashtable;
 
@@ -21,10 +21,10 @@ namespace Fusion.Sample.DedicatedServer
 {
     public class SpaceshipBehaviour : NetworkRigidbody, IAfterSpawned
     {
-        [ShowInInspector] public static readonly Dictionary<PlayerRef, SpaceshipBehaviour> Instances = new();
-        [ShowInInspector] public static SpaceshipBehaviour Local { get; private set; }
+        public static readonly Dictionary<PlayerRef, SpaceshipBehaviour> Instances = new();
+        public static SpaceshipBehaviour Local { get; private set; }
 
-        [ShowInInspector] public GamePhase CurrentPhase { get; private set; }
+        public GamePhase CurrentPhase { get; private set; }
         public DateTime PhaseChangeTime { get; private set; }
         public string Nickname { get; private set; }
         public Color Color { get; private set; } = Color.white;

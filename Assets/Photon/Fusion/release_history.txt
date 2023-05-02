@@ -2737,7 +2737,7 @@ The method can be triggered from a new button on the component editor and is aut
 **What's New**
 
 - DestroyOrphaned - a way to destroy "non-existent" NOs
-- Support for advanced Odin serialization(such as interfaces) added. Use BehaviourSerializedOdin, SimulationBehaviourSerializedOdin, and NetworkBehaviourSerializedOdin as base classes for the equivalent of Odin's SerializedMonoBehaviour
+- Support for advanced Odin serialization(such as interfaces) added. Use BehaviourSerializedOdin, SimulationBehaviourSerializedOdin, and NetworkBehaviourSerializedOdin as base classes for the equivalent of Odin's MonoBehaviour
 
 **Changes**
 

@@ -16,7 +16,6 @@ using Cysharp.Threading.Tasks;
 using Cysharp.Threading.Tasks.Triggers;
 using Fusion;
 using Fusion.Sockets;
-using Sirenix.Utilities;
 using UnityEngine;
 using UnityEngine.UI;
 using Hashtable = ExitGames.Client.Photon.Hashtable;
@@ -133,7 +132,7 @@ namespace Fusion.Sample.DedicatedServer
             else
             {
                 Debug.Log("CheckAllPlayersReady false");
-                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart, DateTime.Now.ToBinary()));
+                SpaceshipBehaviour.Instances.ToList().ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart, DateTime.Now.ToBinary()));
             }
         }
 
@@ -157,8 +156,8 @@ namespace Fusion.Sample.DedicatedServer
         {
             CurrentPhase = GamePhase.PreStart;
             PhaseChangeTime = DateTime.Now;
-            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart, DateTime.Now.ToBinary()));
-            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetColor(i.Value.Color));
+            SpaceshipBehaviour.Instances.ToList().ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart, DateTime.Now.ToBinary()));
+            SpaceshipBehaviour.Instances.ToList().ForEach(i => i.Value.RPC_SetColor(i.Value.Color));
             Debug.Log("RepositionSpaceships!");
             RepositionSpaceships();
 
@@ -166,7 +165,7 @@ namespace Fusion.Sample.DedicatedServer
 
             CurrentPhase = GamePhase.Playing;
             PhaseChangeTime = DateTime.Now;
-            SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Playing, DateTime.Now.ToBinary()));
+            SpaceshipBehaviour.Instances.ToList().ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Playing, DateTime.Now.ToBinary()));
             Debug.Log("SpawnAsteroidLoop!");
             while (true)
             {
@@ -186,8 +185,8 @@ namespace Fusion.Sample.DedicatedServer
             PhaseChangeTime = DateTime.Now;
             if (Runner.ActivePlayers.Count() > 0)
             {
-                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Finished, DateTime.Now.ToBinary()));
-                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetReady(false));
+                SpaceshipBehaviour.Instances.ToList().ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.Finished, DateTime.Now.ToBinary()));
+                SpaceshipBehaviour.Instances.ToList().ForEach(i => i.Value.RPC_SetReady(false));
             }
             Debug.Log("EndOfGame!");
             await EndOfGame();
@@ -195,8 +194,8 @@ namespace Fusion.Sample.DedicatedServer
             if (Runner.ActivePlayers.Count() > 0)
             {
                 Debug.Log("Restart Game");
-                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetReady(false));
-                SpaceshipBehaviour.Instances.ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart, DateTime.Now.ToBinary()));
+                SpaceshipBehaviour.Instances.ToList().ForEach(i => i.Value.RPC_SetReady(false));
+                SpaceshipBehaviour.Instances.ToList().ForEach(i => i.Value.RPC_SetGamePhase(GamePhase.PreStart, DateTime.Now.ToBinary()));
             }
         }
 

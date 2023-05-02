@@ -40,8 +40,7 @@ namespace Photon.Pun.Demo.Asteroids
             {
                 SearchingAMatch.SetActive(true);
                 FindMatchButton.interactable = false;
-                var waitResponseTask = await AsteroidsClientManager.Instance.FindMatch().Catch(Debug.LogException);
-                await waitResponseTask;
+                var result = await AsteroidsClientManager.Instance.FindMatch().Catch(Debug.LogException);
                 FindMatchButton.interactable = true;
                 SearchingAMatch.SetActive(false);
             });

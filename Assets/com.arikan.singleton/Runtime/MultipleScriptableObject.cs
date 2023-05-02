@@ -1,15 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Sirenix.OdinInspector;
+
 using UnityEngine;
 
 namespace Arikan
 {
-    public abstract class MultipleScriptableObject<T> : SerializedScriptableObject where T : SerializedScriptableObject //SharedInstance<T> where T : SharedInstance<T>
+    public abstract class MultipleScriptableObject<T> : ScriptableObject where T : ScriptableObject //SharedInstance<T> where T : SharedInstance<T>
     {
-        [ShowInInspector]
-        [DisableContextMenu]
-        [PropertySpace(0, 12)]
         protected static List<T> _instances = null;
         public static List<T> Instances
         {

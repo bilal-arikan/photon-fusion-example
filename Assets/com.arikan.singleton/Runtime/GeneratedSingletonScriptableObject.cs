@@ -4,16 +4,13 @@
 //***********************************************************************//
 using System;
 using System.Linq;
-using Sirenix.OdinInspector;
+
 using UnityEngine;
 
 namespace Arikan
 {
-    public abstract class GeneratedSingletonScriptableObject<T> : SerializedScriptableObject where T : SerializedScriptableObject //SharedInstance<T> where T : SharedInstance<T>
+    public abstract class GeneratedSingletonScriptableObject<T> : ScriptableObject where T : ScriptableObject //SharedInstance<T> where T : SharedInstance<T>
     {
-        [ShowInInspector]
-        [ReadOnly]
-        [PropertySpace(0, 12)]
         protected static T _instance = null;
         public static T Instance
         {

@@ -7,11 +7,13 @@ using Fusion.Sockets;
 using Photon.Pun.Demo.Asteroids;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
+using Unity.Services.Core.Environments;
 using Unity.Services.Matchmaker;
 using Unity.Services.Matchmaker.Models;
 using Unity.Services.Multiplay;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using static Unity.Services.Matchmaker.Models.MultiplayAssignment;
 
 namespace Fusion.Sample.DedicatedServer
 {
@@ -24,7 +26,6 @@ namespace Fusion.Sample.DedicatedServer
 
         public static NetworkRunner Runner { get; private set; }
         private SpaceShipNetworkInput input;
-        private CreateTicketResponse mmTicketResponse;
         private float pollTicketTimer;
         private UniTaskCompletionSource<bool> pollMatchMaker;
 
@@ -44,10 +45,12 @@ namespace Fusion.Sample.DedicatedServer
             if (UnityServices.State != ServicesInitializationState.Initialized)
             {
                 InitializationOptions options = new();
-                options.SetProfile(UnityEngine.Random.Range(0, 99999).ToString());
+                options.SetEnvironmentName("production");
+                options.SetProfile("main_profile");
+                // options.SetProfile(UnityEngine.Random.Range(0, 99999).ToString());
                 await UnityServices.InitializeAsync(options);
 
-                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                await SignIn();
 
                 Debug.Log("UnityServices initialized");
             }
@@ -58,6 +61,14 @@ namespace Fusion.Sample.DedicatedServer
             }
         }
 
+
+        async Task SignIn()
+        {
+            if (!AuthenticationService.Instance.IsSignedIn)
+                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            Debug.Log($"PlayerID: {AuthenticationService.Instance.PlayerId} Player token: {AuthenticationService.Instance.AccessToken}");
+        }
+
         private void Update()
         {
             input = new()
@@ -66,16 +77,6 @@ namespace Fusion.Sample.DedicatedServer
                 rotation = Input.GetAxis("Horizontal"),
                 acceleration = Input.GetAxis("Vertical"),
             };
-
-            if (mmTicketResponse != null)
-            {
-                pollTicketTimer -= Time.deltaTime;
-                if (pollTicketTimer < 0)
-                {
-                    pollTicketTimer = 2f;
-                    PollMatchMakerTicket();
-                }
-            }
         }
 
         public async UniTask<bool> StartClient(string sessionName)
@@ -104,82 +105,92 @@ namespace Fusion.Sample.DedicatedServer
             }
         }
 
-        public async UniTask<UniTask<bool>> FindMatch()
+        public async UniTask<bool> FindMatch()
         {
-            mmTicketResponse = await MatchmakerService.Instance.CreateTicketAsync(new List<Player>(){
-                new Player(
-                    AuthenticationService.Instance.PlayerId,
-                    new Dictionary<string,string>(){
-                        {"skill", "100"}
-                    }
-                )
-            }, new CreateTicketOptions()
+            var attributes = new Dictionary<string, object>
             {
-                QueueName = "QueA"
+                // { "platform", "ps4" },
+                // { "totalSkill", 9441 }
+            };
+
+            var mmTicketResponse = await MatchmakerService.Instance.CreateTicketAsync(new List<Player>(){
+                new Player(
+                    AuthenticationService.Instance.PlayerId
+                )
+            }, new CreateTicketOptions("QueA", attributes)
+            {
             });
 
-            if (pollMatchMaker != null)
-            {
-                pollMatchMaker.TrySetException(new Exception("new find match started"));
-            }
-            pollMatchMaker = new();
-            return pollMatchMaker.Task;
+            return await GotTicketResponse(mmTicketResponse).Catch(Debug.LogException);
         }
 
-        private async void PollMatchMakerTicket()
+        async UniTask<bool> GotTicketResponse(CreateTicketResponse createTicketResponse)
         {
-            var statusResponse = await MatchmakerService.Instance.GetTicketAsync(mmTicketResponse.Id);
-
-            if (statusResponse == null)
+            MultiplayAssignment assignment = null;
+            bool gotAssignment = false;
+            do
             {
-                Debug.LogError("statusResponse null");
-                return;
-            }
+                //Rate limit delay
+                await Task.Delay(TimeSpan.FromSeconds(1f));
 
-            if (statusResponse.Value is MultiplayAssignment multiplayAssignment)
-            {
-                switch (multiplayAssignment.Status)
+                // Poll ticket
+                var ticketStatus = await MatchmakerService.Instance.GetTicketAsync(createTicketResponse.Id);
+                if (ticketStatus == null)
                 {
-                    case MultiplayAssignment.StatusOptions.Found:
-                        mmTicketResponse = null;
+                    continue;
+                }
 
-                        Debug.Log(multiplayAssignment.Ip + " " + multiplayAssignment.Port);
-                        pollMatchMaker.TrySetResult(true);
-                        pollMatchMaker = null;
+                //Convert to platform assignment data (IOneOf conversion)
+                if (ticketStatus.Type == typeof(MultiplayAssignment))
+                {
+                    assignment = ticketStatus.Value as MultiplayAssignment;
+                }
 
-                        var result = await Runner.StartGame(new StartGameArgs()
+                switch (assignment.Status)
+                {
+                    case StatusOptions.Found:
+                        gotAssignment = true;
+
+                        var MatchmakingResults = await MultiplayService.Instance.GetPayloadAllocationFromJsonAs<MatchmakingResults>();
+
+                        Debug.Log($"Game produced by matchmaker generator {MatchmakingResults.GeneratorName}, Queue {MatchmakingResults.QueueName}, Pool {MatchmakingResults.PoolName}, BackfillTicketId {MatchmakingResults.BackfillTicketId}");
+
+                        Debug.Log(assignment.Ip + " " + assignment.Port);
+
+                        await Runner.StartGame(new StartGameArgs()
                         {
-                            SessionName = "MySession",
+                            SessionName = "mm-" + assignment.MatchId,
                             GameMode = GameMode.Client,
                             SceneManager = Runner.gameObject.AddComponent<NetworkSceneManagerDefault>(),
                             Scene = SceneManager.GetActiveScene().buildIndex,
                             DisableClientSessionCreation = true,
-                            Address = NetAddress.CreateFromIpPort(multiplayAssignment.Ip, (ushort)multiplayAssignment.Port),
+                            Address = NetAddress.CreateFromIpPort(assignment.Ip, (ushort)assignment.Port),
                         });
 
                         break;
-                    case MultiplayAssignment.StatusOptions.Failed:
-                        mmTicketResponse = null;
-                        Debug.LogError("Matchmaking failed. " + multiplayAssignment.Message);
-                        pollMatchMaker.TrySetResult(false);
-                        pollMatchMaker = null;
+                    case StatusOptions.InProgress:
+                        Debug.Log("GotTicketResponse InProgress");
+                        //...
                         break;
-                    case MultiplayAssignment.StatusOptions.Timeout:
-                        mmTicketResponse = null;
-                        Debug.LogError("Matchmaking timed out");
-                        pollMatchMaker.TrySetResult(false);
-                        pollMatchMaker = null;
+                    case StatusOptions.Failed:
+                        gotAssignment = true;
+                        Debug.LogError("Failed to get ticket status. Error: " + assignment.Message);
                         break;
-                    case MultiplayAssignment.StatusOptions.InProgress:
-                        Debug.Log("Matchmaking InProgress");
+                    case StatusOptions.Timeout:
+                        gotAssignment = true;
+                        Debug.LogError("Failed to get ticket status. Ticket timed out.");
                         break;
                     default:
                         throw new InvalidOperationException();
                 }
-            }
-            else
-                Debug.Log(statusResponse.Type.Name + " " + statusResponse.Value);
+
+                // To Cancel matchmaking
+                // await MatchmakerService.Instance.DeleteTicketAsync("<ticket id here>");
+
+            } while (!gotAssignment);
+            return assignment.Status == StatusOptions.Found;
         }
+
 
         public async UniTask<bool> JoinLobby(string lobbyName)
         {

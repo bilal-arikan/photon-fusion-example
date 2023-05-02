@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using Fusion;
-using Sirenix.OdinInspector;
+
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -9,7 +9,7 @@ namespace Fusion.Sample.DedicatedServer
     public class AsteroidBehaviour : NetworkRigidbody
     {
         private Rigidbody rigid;
-        [ShowInInspector] public bool isLargeAsteroid { get; set; }
+        public bool isLargeAsteroid { get; set; }
 
         protected override void Awake()
         {

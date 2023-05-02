@@ -6,7 +6,7 @@
 using System;
 using System.Linq;
 using Arikan;
-using Sirenix.OdinInspector;
+
 using UnityEngine;
 
 namespace Arikan
@@ -15,11 +15,8 @@ namespace Arikan
     /// Singleton pattern.
     /// </summary>
     //[ExecuteInEditMode]
-    public abstract class GeneratedSingletonBehaviour<T> : SerializedMonoBehaviour, IArikanBehaviour where T : SerializedMonoBehaviour
+    public abstract class GeneratedSingletonBehaviour<T> : MonoBehaviour, IArikanBehaviour where T : MonoBehaviour
     {
-        [ShowInInspector]
-        [ReadOnly]
-        [PropertySpace(0, 12)]
         protected static T _instance;
 
         /// <summary>

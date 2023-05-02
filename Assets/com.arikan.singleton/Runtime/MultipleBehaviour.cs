@@ -5,18 +5,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Sirenix.OdinInspector;
+
 using UnityEngine;
 
 /// <summary>
 /// Sahnede Birden fazla ayni component bulunacaksa bununla kullanilabilir
 /// </summary>
 /// <typeparam name="T"></typeparam>
-public abstract class MultipleBehaviour<T> : SerializedMonoBehaviour, IArikanBehaviour where T : SerializedMonoBehaviour
+public abstract class MultipleBehaviour<T> : MonoBehaviour, IArikanBehaviour where T : MonoBehaviour
 {
-    [ShowInInspector]
-    [ReadOnly]
-    [PropertySpace(0, 12)]
     public static HashSet<T> Instances = new HashSet<T>();
 
     protected virtual void OnEnable()

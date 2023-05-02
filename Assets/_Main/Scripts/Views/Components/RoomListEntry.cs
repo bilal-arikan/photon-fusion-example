@@ -1,6 +1,6 @@
 ﻿using Fusion;
 using Fusion.Sample.DedicatedServer;
-using Sirenix.OdinInspector;
+
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,7 +13,7 @@ namespace Fusion.Sample.DedicatedServer
         public Text RoomInfoText;
         public Button JoinRoomButton;
 
-        [ShowInInspector] SessionInfo sess;
+        SessionInfo sess;
 
         public void Start()
         {

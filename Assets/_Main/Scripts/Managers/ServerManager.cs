@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Fusion.Photon.Realtime;
 using Fusion.Sockets;
+using Unity.Services.Authentication;
 using Unity.Services.Core;
+using Unity.Services.Core.Environments;
 using Unity.Services.Matchmaker;
 using Unity.Services.Matchmaker.Models;
 using Unity.Services.Multiplay;
@@ -111,6 +113,7 @@ namespace Fusion.Sample.DedicatedServer
             if (UnityServices.State != ServicesInitializationState.Initialized)
             {
                 InitializationOptions options = new();
+                options.SetEnvironmentName("dev");
                 await UnityServices.InitializeAsync(options);
 
                 MultiplayEventCallbacks multiplayCallbacks = new();
@@ -150,7 +153,7 @@ namespace Fusion.Sample.DedicatedServer
 
         private void MultiplayCallbacks_SubscriptionStateChanged(MultiplayServerSubscriptionState obj)
         {
-            Debug.Log("MultiplayCallbacks_SubscriptionStateChanged " + obj);
+            // Debug.Log("MultiplayCallbacks_SubscriptionStateChanged " + obj);
             switch (obj)
             {
                 case MultiplayServerSubscriptionState.Error:
@@ -178,8 +181,9 @@ namespace Fusion.Sample.DedicatedServer
 
         private async void MultiplayCallbacks_Allocate(MultiplayAllocation obj)
         {
+            Debug.Log("MultiplayCallbacks_Allocate");
             var serverConfig = MultiplayService.Instance.ServerConfig;
-            Debug.Log($"{serverConfig.IpAddress} {serverConfig.Port} {serverConfig.QueryPort} {serverConfig.ServerId}");
+            LogServerConfig();
 
             // StartServer
             var result = await StartSimulation(serverConfig);
@@ -193,12 +197,13 @@ namespace Fusion.Sample.DedicatedServer
                 return;
             }
 
+            await SetupBackfillTickets();
+
             await MultiplayService.Instance.ReadyServerForPlayersAsync();
 
-            SetupBackfillTickets();
         }
 
-        private async void SetupBackfillTickets()
+        private async Task SetupBackfillTickets()
         {
             payloadAllocations = await MultiplayService.Instance.GetPayloadAllocationFromJsonAs<MatchmakingResults>();
 
@@ -333,6 +338,12 @@ namespace Fusion.Sample.DedicatedServer
                 CustomPhotonAppSettings = photonSettings,
                 PlayerCount = AsteroidsGameManager.PLAYER_COUNT_TO_START,
             });
+        }
+
+        private void LogServerConfig()
+        {
+            var serverConfig = MultiplayService.Instance.ServerConfig;
+            Debug.Log($"Server ID[{serverConfig.ServerId}], AllocationId[{serverConfig.AllocationId}], Port[{serverConfig.Port}], QueryPort[{serverConfig.QueryPort}], LogDirectory[{serverConfig.ServerLogDirectory}]");
         }
     }
 }
